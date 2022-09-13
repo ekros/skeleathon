@@ -66,7 +66,7 @@ let playerIsPoweredUp = false; // gives double shot
 let skeletons = [];
 let speedUp = 0;
 const stars = [];
-let state = STATES.RUNNING;
+let state = STATES.TITLE;
 let waveNumber = 1;
 
 // global time-based checks
@@ -1277,6 +1277,7 @@ const initInteraction = () => {
       location.reload();
     } else if (state === STATES.TITLE) {
       state = STATES.RUNNING;
+      playerX = GAME_WIDTH / 3;
     } else if (state === STATES.PAUSED) {
       switch (ev.key) {
         case "p":
@@ -1302,9 +1303,17 @@ const drawTitle = () => {
   // upper section
   ctx.fillStyle = "#333333";
   ctx.fillRect(0, 50, canvas.width, 250);
-  ctx.fillStyle = "black";
+  ctx.fillStyle = "green";
   ctx.font = "80px Arial";
-  ctx.fillText("SKELEATHON", 300, 150);
+  ctx.fillText("SKELEATHON", 250, 150);
+  playerX = 0;
+  drawPlayer(100, 200);
+  drawSkeleton(180, 200);
+  drawSkeleton(220, 200);
+  drawSkeleton(250, 200);
+  drawSkeleton(350, 200, true);
+  drawEnemy(650, 200);
+  drawEnemy(750, 200);
   ctx.fillStyle = "white";
   ctx.font = "14px Arial";
   ctx.fillText("by Eric Ros (@ericrosbh) for the 2022 js13kgames", 460, 290);
@@ -1316,36 +1325,21 @@ const drawTitle = () => {
   // Introduction
   ctx.fillStyle = "white";
   ctx.fillText(
-    "The year is 2050. Humanity is desperate for clean energy. The new fusion reactors are promising, but they are fueled with",
+    "You are a necromancer.",
     20,
     370
   );
   ctx.fillText(
-    "helium-3.. very scarce on Earth but not on the Moon. Only the mightiest will claim the precious resource...",
+    "Forces of good want to destroy you. But nobody will stop your dark plans...",
     20,
     390
   );
   ctx.fillText(
-    "Use arrows to change your selection and press 1, 2, or 3 to build.",
+    "Use arrows to move and jump. Use F to fire your deadly magic. Use R near a grave to raise a skeleton.",
     20,
     430
   );
-  ctx.fillText("The goal is to destroy the enemy command center.", 20, 450);
-  ctx.fillText(
-    "Command centers do nothing, but they generate a large territory.",
-    20,
-    470
-  );
-  ctx.fillText(
-    "Inside your territory, you can build turrets, to attack enemy buildings, and refineries, to increase your helium-3 reserves.",
-    20,
-    490
-  );
-  ctx.fillText(
-    "You cannot build in mountains. A part from that, they do not have any effect in the game.",
-    20,
-    510
-  );
+  ctx.fillText("The game never ends... how many waves are you able to survive?", 20, 450);
   ctx.fillText(
     "Press any key to start",
     canvas.width - 150,
