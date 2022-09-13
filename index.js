@@ -22,6 +22,11 @@ const ITEMS = {
 };
 const REST_COUNTDOWN = 10;
 const BOSS_FREQUENCY = 2;
+const RANDOM_TIPS = [
+  "Your skeletons heal after every wave",
+  "When you are powered-up your spells will do double the damage",
+  "Don't waste your mana"
+];
 
 // GAME STATES
 const STATES = {
@@ -64,6 +69,7 @@ let restCountdown = 0;
 let rightIsPressed = false;
 let playerDirection = DIRECTION.RIGHT;
 let playerIsPoweredUp = false; // gives double shot
+let randomTip = RANDOM_TIPS[Math.floor(Math.random() * RANDOM_TIPS.length)];
 let skeletons = [];
 let speedUp = 0;
 const stars = [];
@@ -1400,6 +1406,7 @@ const drawTitle = () => {
     canvas.width - 150,
     canvas.height - 20
   );
+  ctx.fillText("Random tip: " + randomTip, 20, 570);
 };
 
 const gameLoop = () => {
