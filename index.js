@@ -33,6 +33,10 @@ const STATES = {
 
 // game variables
 let accelerationUp = 0.17;
+let animShieldMin = -2;
+let animShieldMax = 2;
+let animShieldInc = 1;
+let animShieldValue = 0;
 let chatMessages = [];
 let corpses = [];
 let enemies = [];
@@ -51,7 +55,7 @@ const keyHaveBeenPressedOnce = { // used to display hints
   r: false
 };
 let particleSystems = [];
-let playerX = 100;
+let playerX = GAME_WIDTH / 3;
 let playerY = GAME_HEIGHT / 2 + 150;
 let recoilAcceleration = 0.2;
 let recoilSpeed = 0; // recoil movement after being hit
@@ -68,6 +72,7 @@ let waveNumber = 1;
 // global time-based checks
 let manaLastCheck = Date.now();
 let restCountdownLastCheck = Date.now();
+let animationLastCheck = Date.now();
 
 // game objects (with initial values)
 const generateEnemy = () => ({
@@ -82,7 +87,8 @@ const generateEnemy = () => ({
   speed: 2,
   attackSpeed: 1000, // 1 per second
   lastAttack: Date.now(),
-  recoilSpeed: 0
+  recoilSpeed: 0,
+  isAttacking: false // used for moving the sword
 });
 
 const generateSkeleton = (posX) => ({
@@ -94,6 +100,7 @@ const generateSkeleton = (posX) => ({
   speed: 1,
   attackSpeed: 1500,
   lastAttack: Date.now(),
+  isAttacking: false
 });
 
 const generateRandomItemKind = () => {
@@ -121,15 +128,17 @@ const generateBoss = () => ({
   id: Math.random(),
   posX:
     Math.random() < 0.5
-      ? -(Math.random() * 300)
-      : GAME_WIDTH + Math.random() * 300,
+      ? Math.floor(-(Math.random() * 300))
+      : Math.floor(GAME_WIDTH + Math.random() * 300),
   posY: GROUND_HEIGHT,
   hp: 8,
   maxHP: 8,
   speed: 1,
   attackSpeed: 1000, // 1 per second
   lastAttack: Date.now(),
-  isBoss: true
+  isBoss: true,
+  recoilSpeed: 0,
+  isAttacking: false,
 });
 
 // canvas
@@ -302,10 +311,6 @@ const removeCorpse = (index) => {
   corpses = corpses.filter((c) => c);
 };
 
-// const purgeEndedParticleSystems = () => {
-//   particleSystems = particleSystems.filter((system) => !system.ended);
-// };
-
 const drawStars = () => {
   let color = "white";
   stars.forEach((s) => {
@@ -349,7 +354,6 @@ const drawTrees = (scroll) => {
 };
 
 const drawPlayer = (posX, posY) => {
-  // TODO: pass player state
   const BODY_OFFSET_X = -10;
   const BODY_OFFSET_Y = 15;
   ctx.save();
@@ -432,7 +436,7 @@ const drawPlayer = (posX, posY) => {
   ctx.restore();
 };
 
-const drawEnemy = (posX, posY, enemyRecoilSpeed) => {
+const drawEnemy = (posX, posY, enemyRecoilSpeed, isAttacking) => {
   const BODY_OFFSET_X = -10;
   const BODY_OFFSET_Y = 15;
   ctx.save();
@@ -484,6 +488,20 @@ const drawEnemy = (posX, posY, enemyRecoilSpeed) => {
   ctx.fillStyle = "black";
   ctx.fillRect(posX + BODY_OFFSET_X + 35, posY + BODY_OFFSET_Y + 10, 10, 4);
   // sword
+  ctx.save();
+  if (isAttacking) {
+    if (playerX > posX) {
+      ctx.translate(posX, posY);
+      ctx.rotate(Math.PI / 2);
+      ctx.scale(1, 1);
+      ctx.translate(-posX - 15, -posY - 55);
+    } else {
+      ctx.translate(posX, posY);
+      ctx.rotate(Math.PI / 2);
+      ctx.scale(1, 1);
+      ctx.translate(-posX - 15, -posY - 55);
+    }
+  }
   ctx.fillStyle = "gray";
   ctx.fillRect(posX + BODY_OFFSET_X + 45, posY + BODY_OFFSET_Y + 5, 4, -35);
   ctx.fillRect(posX + BODY_OFFSET_X + 46, posY + BODY_OFFSET_Y - 30, 2, -2);
@@ -491,36 +509,17 @@ const drawEnemy = (posX, posY, enemyRecoilSpeed) => {
   ctx.fillRect(posX + BODY_OFFSET_X + 45, posY + BODY_OFFSET_Y + 5, 4, 10);
   ctx.fillRect(posX + BODY_OFFSET_X + 38, posY + BODY_OFFSET_Y + 5, 10, 3);
   ctx.fillRect(posX + BODY_OFFSET_X + 46, posY + BODY_OFFSET_Y + 5, 10, 3);
+  ctx.restore();
   // shield
   ctx.fillStyle = "crimson";
-  ctx.fillRect(posX + BODY_OFFSET_X - 10, posY + BODY_OFFSET_Y, 20, 30);
+  ctx.fillRect(posX + BODY_OFFSET_X - 10, posY + BODY_OFFSET_Y + animShieldValue, 20, 30);
   ctx.beginPath();
-  ctx.arc(posX + BODY_OFFSET_X, posY + BODY_OFFSET_Y + 30, 10, 0, Math.PI);
-  ctx.fill();
-  // shadow
-  ctx.fillStyle = "#222222";
-  const blur = 5;
-  const offset = 7;
-  ctx.beginPath();
-  ctx.ellipse(
-    posX + BODY_OFFSET_X + 10,
-    posY + BODY_OFFSET_Y + 40,
-    10,
-    5,
-    0,
-    0,
-    Math.PI,
-    true
-  );
-  ctx.shadowColor = "black";
-  ctx.shadowOffsetX = 0;
-  ctx.shadowOffsetY = offset;
-  ctx.shadowBlur = blur;
+  ctx.arc(posX + BODY_OFFSET_X, posY + BODY_OFFSET_Y + 30 + animShieldValue, 10, 0, Math.PI);
   ctx.fill();
   ctx.restore();
 };
 
-const drawBoss = (posX, posY) => {
+const drawBoss = (posX, posY, isAttacking) => {
   const BODY_OFFSET_X = -10;
   const BODY_OFFSET_Y = 15;
   posY -= 40;
@@ -533,16 +532,6 @@ const drawBoss = (posX, posY) => {
     ctx.scale(1, -1);
     ctx.translate(-posX, -posY);
   }
-  // TODO: make the enemies recoil
-  // if (recoilSpeed < 0) {
-    //   ctx.translate(posX, posY);
-    //   ctx.rotate(0.1);
-    //   ctx.translate(-posX, -posY);
-    // } else if (recoilSpeed > 0) {
-      //   ctx.translate(posX, posY);
-      //   ctx.rotate(-0.1);
-      //   ctx.translate(-posX, -posY);
-      // }
         ctx.fillStyle = "#444444";
   ctx.arc(posX, posY, 40, 0, 2 * Math.PI, false);
   ctx.fill();
@@ -574,6 +563,20 @@ const drawBoss = (posX, posY) => {
   ctx.fillStyle = "black";
   ctx.fillRect(posX + BODY_OFFSET_X + 35, posY + BODY_OFFSET_Y + 10, 20, 8);
   // sword
+  ctx.save();
+  if (isAttacking) {
+    if (playerX > posX) {
+      ctx.translate(posX, posY);
+      ctx.rotate(Math.PI / 2);
+      ctx.scale(1, 1);
+      ctx.translate(-posX - 15, -posY - 55);
+    } else {
+      ctx.translate(posX, posY);
+      ctx.rotate(Math.PI / 2);
+      ctx.scale(1, 1);
+      ctx.translate(-posX - 15, -posY - 55);
+    }
+  }
   ctx.fillStyle = "gray";
   ctx.fillRect(posX + BODY_OFFSET_X + 60, posY + BODY_OFFSET_Y + 5, 8, -70);
   ctx.fillRect(posX + BODY_OFFSET_X + 61, posY + BODY_OFFSET_Y - 64, 6, -4);
@@ -582,16 +585,17 @@ const drawBoss = (posX, posY) => {
   ctx.fillRect(posX + BODY_OFFSET_X + 60, posY + BODY_OFFSET_Y + 5, 8, 20);
   ctx.fillRect(posX + BODY_OFFSET_X + 53, posY + BODY_OFFSET_Y + 5, 20, 6);
   ctx.fillRect(posX + BODY_OFFSET_X + 61, posY + BODY_OFFSET_Y + 5, 20, 6);
+  ctx.restore();
   // shield
   ctx.fillStyle = "brown";
-  ctx.fillRect(posX + BODY_OFFSET_X - 10, posY + BODY_OFFSET_Y + 10, 40, 60);
+  ctx.fillRect(posX + BODY_OFFSET_X - 10, posY + BODY_OFFSET_Y + 10 + animShieldValue, 40, 60);
   ctx.beginPath();
-  ctx.arc(posX + BODY_OFFSET_X + 10, posY + BODY_OFFSET_Y + 70, 20, 0, Math.PI);
+  ctx.arc(posX + BODY_OFFSET_X + 10, posY + BODY_OFFSET_Y + 70 + animShieldValue, 20, 0, Math.PI);
   ctx.fill();
   ctx.restore();
 };
 
-const drawSkeleton = (posX, posY) => {
+const drawSkeleton = (posX, posY, isAttacking) => {
   const BODY_OFFSET_X = -10;
   const BODY_OFFSET_Y = 15;
   ctx.save();
@@ -603,19 +607,6 @@ const drawSkeleton = (posX, posY) => {
     ctx.scale(1, -1);
     ctx.translate(-posX, -posY);
   }
-  // TODO: make the skeletons recoil
-  // if (recoilSpeed < 0) {
-  //   ctx.translate(posX, posY);
-  //   ctx.rotate(0.1);
-  //   ctx.translate(-posX, -posY);
-  // } else if (recoilSpeed > 0) {
-  //   ctx.translate(posX, posY);
-  //   ctx.rotate(-0.1);
-  //   ctx.translate(-posX, -posY);
-  // }
-  // ctx.fillStyle = "#444444";
-  // ctx.arc(posX, posY, 20, 0, 2 * Math.PI, false);
-  // ctx.fill();
 
   ctx.beginPath();
   ctx.fillStyle = "#CCCCCC";
@@ -650,6 +641,20 @@ const drawSkeleton = (posX, posY) => {
   ctx.fillStyle = "#CCCCCC";
   ctx.fillRect(posX + BODY_OFFSET_X + 35, posY + BODY_OFFSET_Y + 10, 10, 4);
   // sword
+  ctx.save();
+  if (isAttacking) {
+    if (playerX > posX) {
+      ctx.translate(posX, posY);
+      ctx.rotate(Math.PI / 2);
+      ctx.scale(1, 1);
+      ctx.translate(-posX - 15, -posY - 55);
+    } else {
+      ctx.translate(posX, posY);
+      ctx.rotate(Math.PI / 2);
+      ctx.scale(1, 1);
+      ctx.translate(-posX - 15, -posY - 55);
+    }
+  }
   ctx.fillStyle = "gray";
   ctx.fillRect(posX + BODY_OFFSET_X + 45, posY + BODY_OFFSET_Y + 5, 4, -35);
   ctx.fillRect(posX + BODY_OFFSET_X + 46, posY + BODY_OFFSET_Y - 30, 2, -2);
@@ -657,6 +662,7 @@ const drawSkeleton = (posX, posY) => {
   ctx.fillRect(posX + BODY_OFFSET_X + 45, posY + BODY_OFFSET_Y + 5, 4, 10);
   ctx.fillRect(posX + BODY_OFFSET_X + 38, posY + BODY_OFFSET_Y + 5, 10, 3);
   ctx.fillRect(posX + BODY_OFFSET_X + 46, posY + BODY_OFFSET_Y + 5, 10, 3);
+  ctx.restore();
   // shadow
   ctx.fillStyle = "#222222";
   const blur = 5;
@@ -693,16 +699,6 @@ const drawBigSkeleton = (posX, posY) => {
     ctx.scale(1, -1);
     ctx.translate(-posX, -posY);
   }
-  // TODO: make the enemies recoil
-  // if (recoilSpeed < 0) {
-    //   ctx.translate(posX, posY);
-    //   ctx.rotate(0.1);
-    //   ctx.translate(-posX, -posY);
-    // } else if (recoilSpeed > 0) {
-      //   ctx.translate(posX, posY);
-      //   ctx.rotate(-0.1);
-      //   ctx.translate(-posX, -posY);
-      // }
       ctx.beginPath();
       ctx.fillStyle = "#CCCCCC";
       ctx.fillRect(posX - 10, posY - 20, 40, 40);
@@ -750,7 +746,7 @@ const drawBigSkeleton = (posX, posY) => {
 const generateStarBackground = (numberOfStars) => {
   while (numberOfStars--) {
     const x = Math.floor(Math.random() * GAME_WIDTH);
-    const y = Math.floor((Math.random() * GAME_HEIGHT) / 2);
+    const y = Math.floor((Math.random() * (GAME_HEIGHT - 200)));
     stars.push([x, y]);
   }
 };
@@ -846,14 +842,14 @@ const shot = () => {
 };
 
 const updateShots = () => {
-  particleSystems.forEach((p) => {
+  particleSystems.forEach((p, index) => {
     if (p.init.direction === "left") {
       p.init.initX += 6;
     } else if (p.init.direction === "right") {
       p.init.initX -= 6;
     }
     if (p.init.initX > GAME_WIDTH || p.init.initX < 0) {
-      p.ended = true;
+      removeParticleSystem(index);
     }
   });
 };
@@ -949,6 +945,7 @@ const AIStep = () => {
       if (now - enemy.lastAttack > enemy.attackSpeed) {
         enemy.lastAttack = now;
         target.hp -= 1;
+        enemy.isAttacking = true;
         if (target.hp <= 0) {
           destroySkeleton(target.id);
         }
@@ -957,6 +954,7 @@ const AIStep = () => {
       if (now - enemy.lastAttack > enemy.attackSpeed) {
         enemy.lastAttack = now;
         lives -= 1;
+        enemy.isAttacking = true;
         recoilSpeed = playerX < enemy.posX ? -7 : 7;
         if (lives <= 0) {
           state = STATES.LOSE;
@@ -976,6 +974,7 @@ const AIStep = () => {
       if (now - skeleton.lastAttack > skeleton.attackSpeed) {
         skeleton.lastAttack = now;
         target.hp -= 1;
+        skeleton.isAttacking = true;
         target.recoilSpeed = skeleton.posX < target.posX ? 7 : -7;
         if (target.hp <= 0) {
           killEnemy(target.id);
@@ -998,9 +997,9 @@ const AIStep = () => {
 const drawEnemies = () => {
   enemies.forEach((enemy) => {
     if (enemy.isBoss) {
-      drawBoss(enemy.posX, GROUND_HEIGHT);
+      drawBoss(enemy.posX, GROUND_HEIGHT, enemy.isAttacking);
     } else {
-      drawEnemy(enemy.posX, GROUND_HEIGHT, enemy.recoilSpeed);
+      drawEnemy(enemy.posX, GROUND_HEIGHT, enemy.recoilSpeed, enemy.isAttacking);
     }
   });
 };
@@ -1025,7 +1024,7 @@ const drawSkeletons = () => {
     if (skeleton.isBoss) {
       drawBigSkeleton(skeleton.posX, GROUND_HEIGHT);
     } else {
-      drawSkeleton(skeleton.posX, GROUND_HEIGHT);
+      drawSkeleton(skeleton.posX, GROUND_HEIGHT, skeleton.isAttacking);
     }
   });
 };
@@ -1131,6 +1130,8 @@ const drawGameOver = () => {
 }
 
 const drawUI = () => {
+  ctx.fillStyle = "#111111";
+  ctx.fillRect(0, GAME_HEIGHT - 130, GAME_WIDTH, GAME_HEIGHT);
   ctx.beginPath();
   ctx.fillStyle = "blue";
   ctx.strokeStyle = "deepskyblue";
@@ -1403,6 +1404,23 @@ const gameLoop = () => {
         items = [];
         waveNumber += 1;
         initWave();
+      }
+    }
+    enemies.forEach(e => {
+      e.isAttacking = false;
+    });    
+    skeletons.forEach(s => {
+      s.isAttacking = false;
+    });
+  }
+  if (loop % 3 === 0) {
+    const now = Date.now();
+    // animations
+    if (now - animationLastCheck > 100) {
+      animationLastCheck = now;
+      animShieldValue += animShieldInc;
+      if (animShieldValue > animShieldMax || animShieldValue < animShieldMin) {
+        animShieldInc = -animShieldInc;
       }
     }
   }
