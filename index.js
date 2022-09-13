@@ -21,6 +21,7 @@ const ITEMS = {
   EXTRA_LIFE: 4,
 };
 const REST_COUNTDOWN = 10;
+const BOSS_FREQUENCY = 2;
 
 // GAME STATES
 const STATES = {
@@ -686,14 +687,14 @@ const drawSkeleton = (posX, posY, isAttacking) => {
   ctx.restore();
 };
 
-const drawBigSkeleton = (posX, posY) => {
+const drawBigSkeleton = (posX, posY, isAttacking) => {
   const BODY_OFFSET_X = -10;
   const BODY_OFFSET_Y = 15;
   posY -= 40;
   ctx.save();
   // head
   ctx.beginPath();
-  if (playerX < posX) {
+  if (playerX > posX || playerX < posX && enemies.length === 0) {
     ctx.translate(posX, posY);
     ctx.rotate(Math.PI);
     ctx.scale(1, -1);
@@ -732,6 +733,20 @@ const drawBigSkeleton = (posX, posY) => {
   ctx.fillStyle = "black";
   ctx.fillRect(posX + BODY_OFFSET_X + 35, posY + BODY_OFFSET_Y + 10, 20, 8);
   // sword
+  ctx.save();
+  if (isAttacking) {
+    if (playerX > posX) {
+      ctx.translate(posX, posY);
+      ctx.rotate(Math.PI / 2);
+      ctx.scale(1, 1);
+      ctx.translate(-posX - 15, -posY - 55);
+    } else {
+      ctx.translate(posX, posY);
+      ctx.rotate(Math.PI / 2);
+      ctx.scale(1, 1);
+      ctx.translate(-posX - 15, -posY - 55);
+    }
+  }
   ctx.fillStyle = "gray";
   ctx.fillRect(posX + BODY_OFFSET_X + 60, posY + BODY_OFFSET_Y + 5, 8, -70);
   ctx.fillRect(posX + BODY_OFFSET_X + 61, posY + BODY_OFFSET_Y - 64, 6, -4);
@@ -740,6 +755,7 @@ const drawBigSkeleton = (posX, posY) => {
   ctx.fillRect(posX + BODY_OFFSET_X + 60, posY + BODY_OFFSET_Y + 5, 8, 20);
   ctx.fillRect(posX + BODY_OFFSET_X + 53, posY + BODY_OFFSET_Y + 5, 20, 6);
   ctx.fillRect(posX + BODY_OFFSET_X + 61, posY + BODY_OFFSET_Y + 5, 20, 6);
+  ctx.restore();
   ctx.restore();
 };
 
@@ -930,8 +946,10 @@ const raiseSkeleton = () => {
     if (raised) {
       const skeleton = generateSkeleton(raised.corpse.posX);
       skeleton.isBoss = raised.corpse.isBoss;
-      skeleton.hp = 5;
-      skeleton.maxHP = 5;
+      if (skeleton.isBoss) {
+        skeleton.hp = 7;
+        skeleton.maxHP = 7;
+      }
       skeletons.push(skeleton);
       removeCorpse(raised.index);
       mana -= SPELL_COSTS.RAISE;
@@ -951,7 +969,10 @@ const destroyItem = (itemId) => {
 };
 
 const initWave = () => {
-  if (waveNumber % 5 === 0) {
+  skeletons.forEach(s => {
+    s.hp = s.maxHP;
+  });
+  if (waveNumber % BOSS_FREQUENCY === 0) {
     spawnEnemies(waveNumber - 1);
     spawnBoss();
   } else {
@@ -1056,7 +1077,7 @@ const drawCorpses = () => {
 const drawSkeletons = () => {
   skeletons.forEach((skeleton) => {
     if (skeleton.isBoss) {
-      drawBigSkeleton(skeleton.posX, GROUND_HEIGHT);
+      drawBigSkeleton(skeleton.posX, GROUND_HEIGHT, skeleton.isAttacking);
     } else {
       drawSkeleton(skeleton.posX, GROUND_HEIGHT, skeleton.isAttacking);
     }
@@ -1183,7 +1204,7 @@ const drawUI = () => {
   } else {
     ctx.font = "24px serif";
     ctx.fillStyle = "deepskyblue";
-    if (waveNumber % 5 === 0) {
+    if (waveNumber % BOSS_FREQUENCY === 0) {
       ctx.fillText('Boss', GAME_WIDTH - 100, GAME_HEIGHT - 50);
     } else {
       ctx.fillText(`Wave ${waveNumber}`, GAME_WIDTH - 100, GAME_HEIGHT - 50);
