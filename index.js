@@ -870,15 +870,36 @@ const spawnItems = (number) => {
   }
 };
 
-const randomDrop = (posX, posY) => {
-  if (Math.random() < 1) {
-    items.push({
-      id: Math.random(),
-      posX,
-      posY: posY - 100,
-      kind: ITEMS.MANA,
-      speedUp: -2,
-    })
+const randomDrop = (posX, posY, isBoss) => {
+  if (isBoss) {
+    if (Math.random() < 0.5) {
+      items.push({
+        id: Math.random(),
+        posX: posX + 10,
+        posY: posY - 100,
+        kind: ITEMS.MANA,
+        speedUp: -2,
+      })
+    }
+    if (Math.random() < 0.5) {
+      items.push({
+        id: Math.random(),
+        posX,
+        posY: posY - 10,
+        kind: ITEMS.HEAL,
+        speedUp: -2,
+      })
+    }
+  } else {
+    if (Math.random() < 0.2) {
+      items.push({
+        id: Math.random(),
+        posX,
+        posY: posY - 100,
+        kind: ITEMS.MANA,
+        speedUp: -2,
+      })
+    }
   }
 };
 
@@ -890,7 +911,7 @@ const killEnemy = (enemyId) => {
         posY: e.posY,
         isBoss: e.isBoss
       });
-      randomDrop(e.posX, e.posY);
+      randomDrop(e.posX, e.posY, e.isBoss);
       delete enemies[index];
     }
   });
@@ -930,7 +951,7 @@ const destroyItem = (itemId) => {
 };
 
 const initWave = () => {
-  if (waveNumber % 5 === 0) {
+  if (waveNumber % 2 === 0) {
     spawnEnemies(waveNumber - 1);
     spawnBoss();
   } else {
@@ -1162,7 +1183,7 @@ const drawUI = () => {
   } else {
     ctx.font = "24px serif";
     ctx.fillStyle = "deepskyblue";
-    if (waveNumber % 5 === 0) {
+    if (waveNumber % 2 === 0) {
       ctx.fillText('Boss', GAME_WIDTH - 100, GAME_HEIGHT - 50);
     } else {
       ctx.fillText(`Wave ${waveNumber}`, GAME_WIDTH - 100, GAME_HEIGHT - 50);
