@@ -21,7 +21,7 @@ const ITEMS = {
   EXTRA_LIFE: 4,
 };
 const REST_COUNTDOWN = 10;
-const BOSS_FREQUENCY = 2;
+const BOSS_FREQUENCY = 5;
 const RANDOM_TIPS = [
   "Your skeletons heal after every wave",
   "When you are powered-up your spells will do double the damage",
@@ -414,11 +414,15 @@ const drawPlayer = (posX, posY) => {
   // staff
   ctx.fillStyle = "gray";
   ctx.fillRect(posX + BODY_OFFSET_X + 45, posY + BODY_OFFSET_Y, 4, 40);
-  ctx.fillStyle = "green";
   ctx.shadowColor = "white";
   ctx.shadowOffsetX = 0;
   ctx.shadowOffsetY = 0;
   ctx.shadowBlur = 10;
+  if (playerIsPoweredUp) {
+    ctx.fillStyle = "crimson";
+  } else {
+    ctx.fillStyle = "green";
+  }
   ctx.fillRect(posX + BODY_OFFSET_X + 44, posY + BODY_OFFSET_Y, 6, 6);
   // shadow
   ctx.fillStyle = "#222222";
