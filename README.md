@@ -1,4 +1,4 @@
-#Skeleathon
+# Skeleathon
 
 ## A survival game where you kill enemies and build your skeleton army. Created for the js13kgames 2022 competition.
 
