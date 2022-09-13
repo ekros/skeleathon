@@ -95,8 +95,8 @@ const generateSkeleton = (posX) => ({
   id: Math.random(),
   posX,
   posY: GROUND_HEIGHT,
-  hp: 3,
-  maxHP: 3,
+  hp: 4,
+  maxHP: 4,
   speed: 1,
   attackSpeed: 1500,
   lastAttack: Date.now(),
@@ -870,6 +870,18 @@ const spawnItems = (number) => {
   }
 };
 
+const randomDrop = (posX, posY) => {
+  if (Math.random() < 1) {
+    items.push({
+      id: Math.random(),
+      posX,
+      posY: posY - 100,
+      kind: ITEMS.MANA,
+      speedUp: -2,
+    })
+  }
+};
+
 const killEnemy = (enemyId) => {
   enemies.forEach((e, index) => {
     if (e.id === enemyId) {
@@ -878,6 +890,7 @@ const killEnemy = (enemyId) => {
         posY: e.posY,
         isBoss: e.isBoss
       });
+      randomDrop(e.posX, e.posY);
       delete enemies[index];
     }
   });
