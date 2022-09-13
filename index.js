@@ -923,7 +923,7 @@ const raiseSkeleton = () => {
   if (mana >= SPELL_COSTS.RAISE) {
     let raised;
     corpses.forEach((corpse, index) => {
-      if (Math.abs(playerX - corpse.posX) < 10) {
+      if (Math.abs(playerX - corpse.posX) < 15) {
         raised = { corpse, index };
       }
     });
@@ -951,7 +951,7 @@ const destroyItem = (itemId) => {
 };
 
 const initWave = () => {
-  if (waveNumber % 2 === 0) {
+  if (waveNumber % 5 === 0) {
     spawnEnemies(waveNumber - 1);
     spawnBoss();
   } else {
@@ -1183,7 +1183,7 @@ const drawUI = () => {
   } else {
     ctx.font = "24px serif";
     ctx.fillStyle = "deepskyblue";
-    if (waveNumber % 2 === 0) {
+    if (waveNumber % 5 === 0) {
       ctx.fillText('Boss', GAME_WIDTH - 100, GAME_HEIGHT - 50);
     } else {
       ctx.fillText(`Wave ${waveNumber}`, GAME_WIDTH - 100, GAME_HEIGHT - 50);
