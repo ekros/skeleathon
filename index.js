@@ -60,7 +60,8 @@ const keyHaveBeenPressedOnce = { // used to display hints
   f: false,
   r: false
 };
-let particleSystems = [];
+let shots = [];
+let particleEffects = [];
 let playerX = GAME_WIDTH / 3;
 let playerY = GAME_HEIGHT / 2 + 150;
 let recoilAcceleration = 0.2;
@@ -69,6 +70,7 @@ let restCountdown = 0;
 let rightIsPressed = false;
 let playerDirection = DIRECTION.RIGHT;
 let playerIsPoweredUp = false; // gives double shot
+let playerIsEvocating = false; // player is not able to move while evocating
 let randomTip = RANDOM_TIPS[Math.floor(Math.random() * RANDOM_TIPS.length)];
 let skeletons = [];
 let speedUp = 0;
@@ -194,6 +196,7 @@ const startParticleSystem = (
   initY,
   color = { r: 255, g: 255, b: 255 },
   direction = "up",
+  systemArray,
   options = {}
 ) => {
   const particles = [];
@@ -202,6 +205,7 @@ const startParticleSystem = (
   const maxParticles = options.maxParticles || 10;
   const speed = options.speed || 1;
   const once = options.once || false;
+  const headParticleColor = options.headParticleColor;
   particles.push({
     x: initX + Math.random() * 10,
     y: initY,
@@ -209,10 +213,11 @@ const startParticleSystem = (
     opacity: 1,
     size: initSize,
   });
-  particleSystems.push({
+  systemArray.push({
     init: {
       color,
       direction,
+      headParticleColor,
       id,
       initX,
       initY,
@@ -226,9 +231,9 @@ const startParticleSystem = (
   });
 };
 
-const updateParticleSystems = () => {
+const updateParticleSystems = (systemArray) => {
   if (state === STATES.RUNNING || state === STATES.TITLE) {
-    particleSystems.forEach((system) => {
+    systemArray.forEach((system) => {
       const {
         initX,
         initY,
@@ -239,6 +244,7 @@ const updateParticleSystems = () => {
         direction,
         speed,
         once,
+        headParticleColor
       } = system.init;
       system.particles.forEach((p, index) => {
         if (!p.dead) {
@@ -289,13 +295,15 @@ const updateParticleSystems = () => {
           system.particles[index] = newP;
         }
       });
-      ctx.fillStyle = "white";
-      ctx.shadowColor = "white";
-      ctx.shadowOffsetX = 0;
-      ctx.shadowOffsetY = 0;
-      ctx.shadowBlur = 10;
-      ctx.fillRect(initX, initY, 6, 6);
-      ctx.shadowBlur = 0;
+      if (headParticleColor) {
+        ctx.fillStyle = headParticleColor;
+        ctx.shadowColor = headParticleColor;
+        ctx.shadowOffsetX = 0;
+        ctx.shadowOffsetY = 0;
+        ctx.shadowBlur = 10;
+        ctx.fillRect(initX, initY, 6, 6);
+        ctx.shadowBlur = 0;
+      }
       if (system.particles.length < maxParticles) {
         system.particles.push({
           x: initX + Math.random() * 10,
@@ -308,9 +316,9 @@ const updateParticleSystems = () => {
   }
 };
 
-const removeParticleSystem = (index) => {
-  delete particleSystems[index];
-  particleSystems = particleSystems.filter((e) => e);
+const removeParticleSystem = (index, systemArray) => {
+  delete systemArray[index];
+  systemArray = systemArray.filter((e) => e);
 };
 
 const removeCorpse = (index) => {
@@ -390,7 +398,7 @@ const drawPlayer = (posX, posY) => {
   ctx.fill();
   // eyes
   ctx.beginPath();
-  ctx.fillStyle = particleSystems.length > 3 ? "red" : "green";
+  ctx.fillStyle = "green";
   ctx.arc(posX + 2, posY + 5, 2, 0, 2 * Math.PI, false);
   ctx.arc(posX + 9, posY + 5, 2, 0, 2 * Math.PI, false);
   ctx.fill();
@@ -839,28 +847,32 @@ const shot = () => {
   if (mana >= SPELL_COSTS.SPELL) {
     mana -= SPELL_COSTS.SPELL;
     startParticleSystem(
-      particleSystems.length,
+      shots.length,
       playerDirection === DIRECTION.LEFT ? playerX - 35 : playerX + 35,
       playerY + 15,
       { r: 0, g: 255, b: 0 },
       playerDirection === DIRECTION.LEFT ? "right" : "left",
+      shots,
       {
         initTtl: 50,
         speed: 0.7,
         maxParticles: 40,
+        headParticleColor: "white"
       }
-    );
-    if (playerIsPoweredUp) {
-      startParticleSystem(
-        particleSystems.length,
-        playerDirection === DIRECTION.LEFT ? playerX - 37 : playerX + 37,
-        playerY + 5,
+      );
+      if (playerIsPoweredUp) {
+        startParticleSystem(
+          shots.length,
+          playerDirection === DIRECTION.LEFT ? playerX - 37 : playerX + 37,
+          playerY + 5,
         { r: 0, g: 255, b: 0 },
         playerDirection === DIRECTION.LEFT ? "right" : "left",
+        shots,
         {
           initTtl: 50,
           speed: 0.7,
           maxParticles: 40,
+          headParticleColor: "white"
         }
       );
     }
@@ -868,14 +880,14 @@ const shot = () => {
 };
 
 const updateShots = () => {
-  particleSystems.forEach((p, index) => {
+  shots.forEach((p, index) => {
     if (p.init.direction === "left") {
       p.init.initX += 6;
     } else if (p.init.direction === "right") {
       p.init.initX -= 6;
     }
     if (p.init.initX > GAME_WIDTH || p.init.initX < 0) {
-      removeParticleSystem(index);
+      removeParticleSystem(index, shots);
     }
   });
 };
@@ -968,6 +980,32 @@ const raiseSkeleton = () => {
   }
 };
 
+const evocation = () => {
+  if (lives > 1 && mana < 100) {
+    playerIsEvocating = true;
+    mana = Math.min(mana + 50, 100);
+    lives -= 1;
+    startParticleSystem(
+      particleEffects.length,
+      playerDirection === DIRECTION.RIGHT ? playerX + 30 : playerX - 45,
+      GROUND_HEIGHT + 5,
+      { r: 50, g: 50, b: 255 },
+      "up",
+      particleEffects,
+      {
+        initSize: 15,
+        initTtl: 180,
+        speed: 0.15,
+        maxParticles: 80
+      }
+    );
+    setTimeout(() => {
+      playerIsEvocating = false;
+      particleEffects = [];
+    }, 3000);
+  }
+};
+
 const destroySkeleton = (skeletonId) => {
   delete skeletons[skeletons.findIndex((s) => s.id === skeletonId)];
   skeletons = skeletons.filter((s) => s);
@@ -1019,6 +1057,7 @@ const AIStep = () => {
       if (now - enemy.lastAttack > enemy.attackSpeed) {
         enemy.lastAttack = now;
         lives -= 1;
+        particleEffects = [];
         enemy.isAttacking = true;
         recoilSpeed = playerX < enemy.posX ? -7 : 7;
         if (lives <= 0) {
@@ -1265,10 +1304,16 @@ const drawHints = () => {
     ctx.fillText("r", corpses[0].posX + 5, corpses[0].posY - 40);
     ctx.fillText("(raise)", corpses[0].posX - 15, corpses[0].posY - 30);
   }
+  if (!keyHaveBeenPressedOnce.e && mana < 50) {
+    ctx.fillStyle = "green";
+    ctx.font = "14px serif";
+    ctx.fillText("You can press -e- to cast the evocation spell.", 170, GAME_HEIGHT - 80);
+    ctx.fillText("It will cost you a life and won't be able to move for a while.", 170, GAME_HEIGHT - 60);
+  }
 }
 
 const checkColisions = () => {
-  particleSystems.forEach((p, index) => {
+  shots.forEach((p, index) => {
     const enemy = enemies.find(
       (e) =>
         Math.abs(e.posX - p.init.initX) < 30 &&
@@ -1276,7 +1321,7 @@ const checkColisions = () => {
     );
     if (enemy) {
       enemy.hp -= 1;
-      removeParticleSystem(index);
+      removeParticleSystem(index, shots);
       enemy.recoilSpeed = playerX < enemy.posX ? 7 : -7;
       if(enemy.hp === 0) {
         killEnemy(enemy.id);
@@ -1289,7 +1334,7 @@ const checkColisions = () => {
       Math.abs(item.posY - playerY) < 30
     ) {
       if (item.kind === ITEMS.MANA) {
-        mana = Math.min(100, mana + 10);
+        mana = Math.min(100, mana + 20);
       } else if (item.kind === ITEMS.HEAL && lives < maxLives) {
         lives += 1;
       } else if (item.kind === ITEMS.POWERUP && !playerIsPoweredUp) {
@@ -1305,7 +1350,7 @@ const checkColisions = () => {
 
 const initInteraction = () => {
   document.addEventListener("keydown", (ev) => {
-    if (state === STATES.RUNNING) {
+    if (state === STATES.RUNNING && !playerIsEvocating) {
       switch (ev.key) {
         // arrows
         case "ArrowLeft":
@@ -1314,41 +1359,38 @@ const initInteraction = () => {
           rightIsPressed = false;
           keyHaveBeenPressedOnce.left = true;
           break;
-          case "ArrowUp":
-            if (speedUp === 0) {
-              speedUp = 6;
-            }
-            keyHaveBeenPressedOnce.up = true;
-            break;
-            case "ArrowRight":
-              playerDirection = DIRECTION.RIGHT;
-              rightIsPressed = true;
-              leftIsPressed = false;
-              keyHaveBeenPressedOnce.right = true;
-              break;
-              case "f":
+        case "ArrowUp":
+          if (speedUp === 0) {
+            speedUp = 6;
+          }
+          keyHaveBeenPressedOnce.up = true;
+          break;
+        case "ArrowRight":
+          playerDirection = DIRECTION.RIGHT;
+          rightIsPressed = true;
+          leftIsPressed = false;
+          keyHaveBeenPressedOnce.right = true;
+          break;
+        case "f":
           shot();
           keyHaveBeenPressedOnce.f = true;
           break;
-          case "r":
-            raiseSkeleton();
-            keyHaveBeenPressedOnce.r = true;
-          break;
-        case "p":
-          state = STATES.PAUSED;
-          break;
+        case "r":
+          raiseSkeleton();
+          keyHaveBeenPressedOnce.r = true;
+        break;
+        case "e":
+          if (speedUp === 0) {
+            evocation();
+            keyHaveBeenPressedOnce.e = true;
+          }
+        break;
       }
     } else if (state === STATES.LOSE) {
       location.reload();
     } else if (state === STATES.TITLE) {
       state = STATES.RUNNING;
       playerX = GAME_WIDTH / 3;
-    } else if (state === STATES.PAUSED) {
-      switch (ev.key) {
-        case "p":
-          state = STATES.RUNNING;
-          break;
-      }
     }
   });
   document.addEventListener("keyup", (ev) => {
@@ -1400,7 +1442,7 @@ const drawTitle = () => {
     390
   );
   ctx.fillText(
-    "Use arrows to move and jump. Use F to fire your deadly magic. Use R near a grave to raise a skeleton.",
+    "Use arrows to move and jump. Use F to fire your deadly magic. Use R near a grave to raise a skeleton. Use E to refill mana paying 1 life.",
     20,
     430
   );
@@ -1448,7 +1490,8 @@ const gameLoop = () => {
     drawHints();
     // updateLandingProgress();
   }
-  updateParticleSystems();
+  updateParticleSystems(shots);
+  updateParticleSystems(particleEffects);
   if (loop % 20 === 0) {
     // mana increment
     const now = Date.now();
