@@ -88,8 +88,8 @@ const generateEnemy = () => ({
   id: Math.random(),
   posX:
     Math.random() < 0.5
-      ? -(Math.random() * 300)
-      : GAME_WIDTH + Math.random() * 300,
+      ? -(Math.random() * 500)
+      : GAME_WIDTH + Math.random() * 500,
   posY: GROUND_HEIGHT,
   hp: 2,
   maxHP: 2,
@@ -97,7 +97,9 @@ const generateEnemy = () => ({
   attackSpeed: 1000, // 1 per second
   lastAttack: Date.now(),
   recoilSpeed: 0,
-  isAttacking: false // used for moving the sword
+  isAttacking: false, // used for moving the sword
+  reactionTimeInSteps: Number((Math.random() * 100).toFixed()), // time needed to change direction
+  stepsToReact: null
 });
 
 const generateSkeleton = (posX) => ({
@@ -148,6 +150,8 @@ const generateBoss = () => ({
   isBoss: true,
   recoilSpeed: 0,
   isAttacking: false,
+  reactionTimeInSteps: Number((Math.random() * 100).toFixed()), // time needed to change direction
+  stepsToReact: null
 });
 
 // canvas
@@ -1065,8 +1069,15 @@ const AIStep = () => {
         }
       }
     } else {
-      if (enemy.posX > playerX) {
-        enemy.posX -= enemy.speed;
+      if (enemy.speed > 0 && playerX < enemy.posX || enemy.speed < 0 && playerX > enemy.posX) {
+          if (enemy.stepsToReact) {
+            enemy.stepsToReact -= 1;
+          } else {
+            enemy.stepsToReact = enemy.reactionTimeInSteps;
+          }
+          if (enemy.stepsToReact === 0) {
+            enemy.speed = -enemy.speed;
+          }
       } else {
         enemy.posX += enemy.speed;
       }
