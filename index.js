@@ -46,6 +46,8 @@ let animShieldValue = 0;
 let chatMessages = [];
 let corpses = [];
 let enemies = [];
+let enemiesSpawnedThisWave = 0;
+let firePressedAt = null;
 let items = [];
 let leftIsPressed = false;
 let lives = 3;
@@ -76,8 +78,7 @@ let skeletons = [];
 let speedUp = 0;
 const stars = [];
 let state = STATES.TITLE;
-let waveNumber = 5;
-let enemiesSpawnedThisWave = 0;
+let waveNumber = 1;
 
 // global time-based checks
 let manaLastCheck = Date.now();
@@ -625,7 +626,7 @@ const drawSkeleton = (posX, posY, isAttacking) => {
   ctx.save();
   // head
   ctx.beginPath();
-  if (playerX > posX || playerX < posX && enemies.length === 0) {
+  if (playerX > posX && enemies.length > 0 || playerX < posX && enemies.length === 0) {
     ctx.translate(posX, posY);
     ctx.rotate(Math.PI);
     ctx.scale(1, -1);
@@ -717,7 +718,7 @@ const drawBigSkeleton = (posX, posY, isAttacking) => {
   ctx.save();
   // head
   ctx.beginPath();
-  if (playerX > posX || playerX < posX && enemies.length === 0) {
+  if (playerX > posX && enemies.length > 0 || playerX < posX && enemies.length === 0) {
     ctx.translate(posX, posY);
     ctx.rotate(Math.PI);
     ctx.scale(1, -1);
@@ -815,11 +816,13 @@ const updateGravity = () => {
 // make player recoil (when hit)
 const updateRecoil = () => {
   if (recoilSpeed !== 0) {
-    playerX += recoilSpeed;
-    recoilSpeed =
+    if (!(recoilSpeed < 0 && playerX < 10 || recoilSpeed > 0 && playerX > GAME_WIDTH - 10)) {
+      playerX += recoilSpeed;
+      recoilSpeed =
       recoilSpeed > 0
-        ? recoilSpeed - recoilAcceleration
-        : recoilSpeed + recoilAcceleration;
+      ? recoilSpeed - recoilAcceleration
+      : recoilSpeed + recoilAcceleration;
+    }
   }
   if (recoilSpeed < 0.2 && recoilSpeed > -0.2) {
     recoilSpeed = 0;
@@ -827,11 +830,13 @@ const updateRecoil = () => {
   // enemies
   enemies.forEach(e => {
     if (e.recoilSpeed !== 0) {
+      if (!(e.recoilSpeed < 0 && e.posX < 10 || e.recoilSpeed > 0 && e.posX > GAME_WIDTH - 10)) {
       e.posX += e.recoilSpeed;
       e.recoilSpeed =
         e.recoilSpeed > 0
           ? e.recoilSpeed - recoilAcceleration
           : e.recoilSpeed + recoilAcceleration;
+      }
     }
     if (e.recoilSpeed < 0.2 && e.recoilSpeed > -0.2) {
       e.recoilSpeed = 0;
@@ -1098,13 +1103,13 @@ const AIStep = () => {
         }
       }
     } else {
-      if (skeleton.posX > playerX && enemies.length > 0) {
+      if (skeleton.posX > playerX && enemies.length > 0 && skeleton.posX < GAME_WIDTH - 40) {
         skeleton.posX += skeleton.speed;
-      } else if (skeleton.posX > playerX && enemies.length === 0) {
+      } else if (skeleton.posX > playerX + 5 && enemies.length === 0) {
         skeleton.posX -= skeleton.speed;
-      } else if (skeleton.posX < playerX && enemies.length > 0) {
+      } else if (skeleton.posX < playerX && enemies.length > 0 && skeleton.posX > 40) {
         skeleton.posX -= skeleton.speed;
-      } else if (skeleton.posX < playerX && enemies.length === 0) {
+      } else if (skeleton.posX < playerX - 5 && enemies.length === 0) {
         skeleton.posX += skeleton.speed;
       }
     }
@@ -1392,8 +1397,11 @@ const initInteraction = () => {
           keyHaveBeenPressedOnce.right = true;
           break;
         case "f":
-          shot();
-          keyHaveBeenPressedOnce.f = true;
+          if (!firePressedAt || Date.now() - firePressedAt > 300) {
+            shot();
+            keyHaveBeenPressedOnce.f = true;
+            firePressedAt = Date.now();
+          }
           break;
         case "r":
           raiseSkeleton();
@@ -1409,8 +1417,10 @@ const initInteraction = () => {
     } else if (state === STATES.LOSE) {
       location.reload();
     } else if (state === STATES.TITLE) {
-      state = STATES.RUNNING;
-      playerX = GAME_WIDTH / 3;
+      if (ev.key === "Enter") {
+        state = STATES.RUNNING;
+        playerX = GAME_WIDTH / 3;
+      }
     }
   });
   document.addEventListener("keyup", (ev) => {
@@ -1455,23 +1465,25 @@ const drawTitle = () => {
     "You are a necromancer.",
     20,
     370
-  );
+    );
+    ctx.fillText(
+      "Forces of good want to destroy you. But nobody will stop your dark plans...",
+      20,
+      390
+      );
+      ctx.fillText(
+        "Use arrows to move and jump. Use F to fire your deadly magic. Use R near a grave to raise a skeleton. Use E to refill mana paying 1 life.",
+        20,
+        430
+        );
+        ctx.fillText("The game never ends... how many waves are you able to survive?", 20, 450);
+  ctx.font = "18px Arial";
   ctx.fillText(
-    "Forces of good want to destroy you. But nobody will stop your dark plans...",
-    20,
-    390
-  );
-  ctx.fillText(
-    "Use arrows to move and jump. Use F to fire your deadly magic. Use R near a grave to raise a skeleton. Use E to refill mana paying 1 life.",
-    20,
-    430
-  );
-  ctx.fillText("The game never ends... how many waves are you able to survive?", 20, 450);
-  ctx.fillText(
-    "Press any key to start",
-    canvas.width - 150,
+    "Press Enter to start",
+    canvas.width - 170,
     canvas.height - 20
-  );
+    );
+  ctx.font = "14px Arial";
   ctx.fillText("Random tip: " + randomTip, 20, 570);
 };
 
