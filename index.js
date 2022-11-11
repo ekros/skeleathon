@@ -8,7 +8,7 @@ const SPELL_COSTS = {
   SPELL: 10,
   RAISE: 20,
 };
-const MANA_REGEN = 1;
+const MANA_REGEN = 2;
 const DIRECTION = {
   LEFT: 1,
   RIGHT: 2,
@@ -76,7 +76,8 @@ let skeletons = [];
 let speedUp = 0;
 const stars = [];
 let state = STATES.TITLE;
-let waveNumber = 1;
+let waveNumber = 5;
+let enemiesSpawnedThisWave = 0;
 
 // global time-based checks
 let manaLastCheck = Date.now();
@@ -93,7 +94,7 @@ const generateEnemy = () => ({
   posY: GROUND_HEIGHT,
   hp: 2,
   maxHP: 2,
-  speed: 2,
+  speed: 2 + (waveNumber / 10),
   attackSpeed: 1000, // 1 per second
   lastAttack: Date.now(),
   recoilSpeed: 0,
@@ -144,7 +145,7 @@ const generateBoss = () => ({
   posY: GROUND_HEIGHT,
   hp: 8,
   maxHP: 8,
-  speed: 1,
+  speed: 1 + (waveNumber / 10),
   attackSpeed: 1000, // 1 per second
   lastAttack: Date.now(),
   isBoss: true,
@@ -897,6 +898,7 @@ const updateShots = () => {
 };
 
 const spawnEnemies = (number) => {
+  enemiesSpawnedThisWave += number;
   for (let i = 0; i < number; i++) {
     enemies.push(generateEnemy());
   }
@@ -1121,6 +1123,9 @@ const drawEnemies = () => {
 
 const drawCorpses = () => {
   corpses.forEach((corpse) => {
+    if (corpse.isBoss) {
+      ctx.filter = "invert()";
+    }
     ctx.fillStyle = "gray";
     ctx.fillRect(corpse.posX - 20, GROUND_HEIGHT + 45, 40, 5);
     ctx.fillRect(corpse.posX - 10, GROUND_HEIGHT + 45, 20, -20);
@@ -1131,6 +1136,10 @@ const drawCorpses = () => {
     ctx.font = "10px arial";
     ctx.fillStyle = "black";
     ctx.fillText("RIP", corpse.posX - 8, corpse.posY + 35);
+    if (corpse.isBoss) {
+      ctx.fillText("(Boss)", corpse.posX - 13, corpse.posY + 13);
+    }
+    ctx.filter = "none";
   });
 };
 
@@ -1345,7 +1354,7 @@ const checkColisions = () => {
       Math.abs(item.posY - playerY) < 30
     ) {
       if (item.kind === ITEMS.MANA) {
-        mana = Math.min(100, mana + 20);
+        mana = Math.min(100, mana + 25);
       } else if (item.kind === ITEMS.HEAL && lives < maxLives) {
         lives += 1;
       } else if (item.kind === ITEMS.POWERUP && !playerIsPoweredUp) {
@@ -1536,6 +1545,11 @@ const gameLoop = () => {
       if (animShieldValue > animShieldMax || animShieldValue < animShieldMin) {
         animShieldInc = -animShieldInc;
       }
+    }
+  }
+  if (loop % 1000 === 0 && enemies.length > 0) {
+    if (enemiesSpawnedThisWave < waveNumber * 2) { // continue spawning enemies till a limit
+      spawnEnemies(Math.floor(waveNumber/2));
     }
   }
   loop++;
